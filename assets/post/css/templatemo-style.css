@@ -465,7 +465,7 @@ h5 {
     -moz-transition: all 150ms ease-in-out;
     -ms-transition: all 150ms ease-in-out;
     -o-transition: all 150ms ease-in-out;
-    transition: all 150ms ease-in-out;
+    /* transition: all 150ms ease-in-out; */
 }
 
 .post-masonry .post-thumb .post-hover .inside {

@@ -12,11 +12,16 @@ class ModelUser extends CI_Model
     {
         // check if username exist
         if ($this->get_user_by_username($user->username) == null) {
-            $this->db->insert("user", $user->toArray());
-            if ($this->db->affected_rows() > 0) { //return if data successfully inserted
-                return getResponse(true, "Add user success");
-            } else {
-                return getResponse(false, "Add user failed");
+            // add validation
+            if ($user->validateValue(["id"])) {
+                $this->db->insert("user", $user->toArray());
+                if ($this->db->affected_rows() > 0) { //return if data successfully inserted
+                    return getResponse(true, "Add user success");
+                } else {
+                    return getResponse(false, "Add user failed");
+                }
+            }else{
+                return getResponse(false, "Data invalid");
             }
         }
         return getResponse(false, "Username already taken");

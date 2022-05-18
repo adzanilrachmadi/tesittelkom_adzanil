@@ -5,6 +5,8 @@ class ModelPost extends CI_Model
     function __construct()
     {
         parent::__construct();
+        // date_timezone_set()
+        date_default_timezone_set("Asia/Jakarta");
     }
 
     function add_post(Post $data): array
@@ -20,7 +22,7 @@ class ModelPost extends CI_Model
 
     function get_post_by_id(int $id, bool $return_object = true)
     {
-        $this->db->where("id", $id);
+        $this->db->where("post.id", $id);
         $data = $this->_get_post($return_object);
         if (sizeof($data) > 0) {
             return $data[0];
@@ -28,9 +30,10 @@ class ModelPost extends CI_Model
         return null;
     }
 
-    function get_posts(int $page = 0, bool $return_object = true)
+    function get_posts(int $page = 0, int $after = 0, bool $return_object = true)
     {
         $post_per_page = 20;
+        $this->db->where("post.id > $after");
         $this->db->order_by("tanggal", "DESC");
         $this->db->limit($post_per_page, $page * $post_per_page);
         return $this->_get_post($return_object);
@@ -38,6 +41,8 @@ class ModelPost extends CI_Model
 
     private function _get_post(bool $return_object = true): array
     {
+        $this->db->select("post.*, user.username");
+        $this->db->join('user', 'user.id = post.id_user', 'left');
         $data = $this->db->get("post")->result_array();
         $data_return = array();
         foreach ($data as $d) {
@@ -46,10 +51,12 @@ class ModelPost extends CI_Model
                 $p->fromArray($d);
                 $p->set_comment($this->get_comments($p->id));
                 $p->set_likes($this->get_likes($p->id));
+                $p->set("i_like", $this->get_likes($p->id), false);
                 $data_return[] = $p;
             } else {
                 $d["comments"] = $this->get_comments($d["id"]);
                 $d["likes"] = $this->get_likes($d["id"]);
+                $d["i_like"] = $this->am_i_like($d["id"]);
                 $data_return[] = $d;
             }
         }
@@ -60,22 +67,42 @@ class ModelPost extends CI_Model
     {
         if ($data->validateValue(["id"])) {
             $this->db->insert("comment", $data->toArray());
+            // $id = $this->db->insert_id;
             if ($this->db->affected_rows() > 0) {
-                return getResponse(true, "Add comment success");
+                return getResponseWithData(true, "Add comment success", array("comment" => $this->get_comment($this->db->insert_id())));
             }
         } else {
             return getResponse(false, "Add comment failed"); //either value invalid or insert fail
         }
     }
 
+    function get_comment(int $id_comment)
+    {
+        $this->db->select("comment.*, user.username");
+        $this->db->join('user', 'user.id = comment.id_user', 'left');
+        $this->db->where("comment.id", $id_comment);
+        $data = $this->db->get("comment")->result_array();
+        return $data[0];
+    }
+
     function get_comments(int $id_post, int $page = 0): array
     {
+        $this->db->select("comment.*, user.username");
+        $this->db->join('user', 'user.id = comment.id_user', 'left');
         $this->db->where("id_post", $id_post);
         $post_per_page = 5;
-        $this->db->order_by("tanggal", "DESC"); //newest first
+        $this->db->order_by("tanggal", "ASC"); //oldest first
         $this->db->limit($post_per_page, $page * $post_per_page);
         $data = $this->db->get("comment")->result_array();
         return $data;
+    }
+
+    function count_like(int $id_post): int
+    {
+
+        $this->db->where(array("id_post" => $id_post));
+        $this->db->from('likes');
+        return $this->db->count_all_results();
     }
 
     function toggle_like(int $id_post): array
@@ -85,10 +112,10 @@ class ModelPost extends CI_Model
         if ($this->db->get("likes")->num_rows() > 0) { // user already like post            
             $this->db->where(array("id_post" => $id_post, "id_user" => $this->session->userdata("user")["id"]));
             $this->db->delete("likes"); //dislike
-            return getResponseWithData(true, "Dislike success", array("like" => false));
+            return getResponseWithData(true, "Dislike success", array("like" => false, "like_count" => $this->count_like($id_post)));
         } else {
             $this->db->insert("likes", array("id_post" => $id_post, "id_user" => $this->session->userdata("user")["id"])); //like
-            return getResponseWithData(true, "Like success", array("like" => true));
+            return getResponseWithData(true, "Like success", array("like" => true, "like_count" => $this->count_like($id_post)));
         }
     }
 
@@ -96,6 +123,16 @@ class ModelPost extends CI_Model
     {
         return $this->db->query("SELECT likes.*, user.username FROM (SELECT * from likes WHERE id_post = $id_post) AS likes 
         LEFT JOIN user ON user.id = likes.id_user;")->result_array();
+    }
+
+    private function am_i_like(int $id_post): bool
+    {
+        if (isLoggedIn()) {
+            $this->db->where(array("id_post" => $id_post, "id_user" => $this->session->userdata("user")["id"]));
+            $this->db->from('likes');
+            return $this->db->count_all_results() > 0;
+        }
+        return false;
     }
 }
 

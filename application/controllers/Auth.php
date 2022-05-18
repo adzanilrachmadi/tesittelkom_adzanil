@@ -45,15 +45,15 @@ class Auth extends CI_Controller
     function submit_register()
     {
         $submitted_data = $this->input->post();
-        echo $submitted_data["foto"];
-        return;
+        // echo $submitted_data["foto"];
+        // return;
         $data = new DataUser();
         $data_field = $data->getFields();
         // echo json_encode($data_field);
         // return;
         $empty_field = array();
         foreach ($data_field as $f) { //check if all field is send by user
-            if (!array_key_exists($f, $submitted_data)) { //any field is not exist on user input data
+            if ($f != "id" && !array_key_exists($f, $submitted_data)) { //any field is not exist on user input data
                 $empty_field[] = $f;
             }
         }

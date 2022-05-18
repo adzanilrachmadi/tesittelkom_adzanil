@@ -38,13 +38,17 @@ class Rest_api extends RestController
             $post_data = $this->modelpost->get_post_by_id($id_post, false);
         } else {
             $page = 0;
+            $after = 0;
             if (isset($data["page"]) && is_numeric($data["page"])) {
                 $page = (int)$data["page"] - 1;
+            }
+            if (isset($data["after"]) && is_numeric($data["after"])) {
+                $after = (int)$data["after"];
             }
             if ($page < 0) {
                 $page = 0;
             }
-            $post_data = $this->modelpost->get_posts($page, false);
+            $post_data = $this->modelpost->get_posts($page, $after, false);
         }
         $this->response(getResponseWithData(true, "Get post success", array("post" => $post_data)));
     }
@@ -84,6 +88,18 @@ class Rest_api extends RestController
         }
     }
 
+    function get_comment_post()
+    {
+        $data = $this->post();
+        $id_post = $data["id_post"];
+        $page = 0;
+        if (isset($data["page"]) && is_numeric($data["page"])) {
+            $page = (int)$data["page"] - 1;
+        }
+        $comment = $this->modelpost->get_comments($id_post, $page);
+        $this->response(getResponseWithData(true, "Get comment success", array("comment" => $comment)));
+    }
+
     function add_like_post()
     {
         $id_post = $this->post("id_post");
@@ -91,9 +107,5 @@ class Rest_api extends RestController
             $data["id_user"] =  $this->session->userdata("user")["id"];
             $this->response($this->modelpost->toggle_like($id_post));
         }
-    }
-
-    function update_post_post()
-    {
     }
 }
